@@ -24,6 +24,8 @@
 #include "h3lis.h"
 #define H3LIS_ADDR_LOW   (0x18 << 1)
 #define H3LIS_ADDR_HIGH  (0x19 << 1)
+
+#include "dps368.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -43,17 +45,22 @@
 
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
+I2C_HandleTypeDef hi2c3;
 
 /* USER CODE BEGIN PV */
 Accel_t accel;
-uint8_t result;
+uint8_t accelResult; // expected 0x32
 AccelData_t accelData;
+
+Baro_t baro;
+uint8_t baroResult; // expected 0x10
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
+static void MX_I2C3_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -93,10 +100,26 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_I2C1_Init();
+  MX_I2C3_Init();
   /* USER CODE BEGIN 2 */
+
+  // teting barometer thing - not working
+  // TODO: make the barometer work lol
+//  uint8_t found_addr = 0;
+//  for (uint8_t addr = 1; addr < 128; addr++) {
+//      if (HAL_I2C_IsDeviceReady(&hi2c3, addr << 1, 1, 10) == HAL_OK) {
+//          found_addr = addr;
+//          __NOP();
+//      }
+//  }
+
   accel.i2c_handle = &hi2c1;
   accel.device_addr = H3LIS_ADDR_HIGH;
-  result = h3lis_init(&accel);
+  accelResult = h3lis_init(&accel);
+
+  baro.i2c_handle = &hi2c3;
+  baro.device_addr = DPS368_ADDR << 1;
+  baroResult = dps368_init(&baro); // doesn't work rn
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -104,6 +127,7 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
+
     /* USER CODE BEGIN 3 */
 	  HAL_Delay(200);
   }
@@ -186,6 +210,40 @@ static void MX_I2C1_Init(void)
 }
 
 /**
+  * @brief I2C3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C3_Init(void)
+{
+
+  /* USER CODE BEGIN I2C3_Init 0 */
+
+  /* USER CODE END I2C3_Init 0 */
+
+  /* USER CODE BEGIN I2C3_Init 1 */
+
+  /* USER CODE END I2C3_Init 1 */
+  hi2c3.Instance = I2C3;
+  hi2c3.Init.ClockSpeed = 100000;
+  hi2c3.Init.DutyCycle = I2C_DUTYCYCLE_2;
+  hi2c3.Init.OwnAddress1 = 0;
+  hi2c3.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c3.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c3.Init.OwnAddress2 = 0;
+  hi2c3.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c3.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C3_Init 2 */
+
+  /* USER CODE END I2C3_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -197,6 +255,7 @@ static void MX_GPIO_Init(void)
   /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 

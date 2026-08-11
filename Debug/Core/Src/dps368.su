@@ -1,0 +1,15 @@
+../Core/Src/dps368.c:20:26:dps368_write	32	static
+../Core/Src/dps368.c:26:26:dps368_read	40	static
+../Core/Src/dps368.c:32:26:dps368_read_bytes	40	static
+../Core/Src/dps368.c:41:16:sign_extend24	16	static
+../Core/Src/dps368.c:46:16:sign_extend20	16	static
+../Core/Src/dps368.c:52:16:sign_extend12	16	static
+../Core/Src/dps368.c:58:13:read_coefs	40	static
+../Core/Src/dps368.c:79:9:dps368_init	24	static
+../Core/Src/dps368.c:109:6:dps368_set_opmode	16	static
+../Core/Src/dps368.c:114:6:dps368_config_tmp	16	static
+../Core/Src/dps368.c:120:6:dps368_config_prs	16	static
+../Core/Src/dps368.c:126:6:dps368_config_int	24	static
+../Core/Src/dps368.c:135:6:dps368_clear_intflgs	24	static
+../Core/Src/dps368.c:141:6:dps368_get_result	48	static
+../Core/Src/dps368.c:160:7:dps368_get_altitude	16	static
