@@ -1,4 +1,5 @@
-../Core/Src/IMU.c:10:9:IMU_Initialise	2
-../Core/Src/IMU.c:46:9:SPI_ReadRegister	2
-../Core/Src/IMU.c:62:6:ReadGyroscope	1
-../Core/Src/IMU.c:72:6:ReadAcceleration	1
+../Core/Src/IMU.c:14:13:SPI_WriteRegister	1
+../Core/Src/IMU.c:23:9:IMU_Initialise	2
+../Core/Src/IMU.c:54:9:SPI_ReadRegister	2
+../Core/Src/IMU.c:70:6:ReadGyroscope	1
+../Core/Src/IMU.c:80:6:ReadAcceleration	1

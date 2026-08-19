@@ -7,6 +7,19 @@
 
 #include "IMU.h"
 
+/* LSM6DSOX power/config registers */
+#define IMU_CTRL1_XL   0x10   /* accelerometer power/config */
+#define IMU_CTRL2_G    0x11   /* gyroscope power/config */
+
+static void SPI_WriteRegister(IMU *dev, uint8_t address, uint8_t data)
+{
+    uint8_t transmit[2] = { (uint8_t)(address & 0x7F), data }; /* bit 7 = 0 for write */
+
+    HAL_GPIO_WritePin(dev->cs_port, dev->cs_pin, GPIO_PIN_RESET);
+    HAL_SPI_Transmit(dev->spi_handle, transmit, 2, HAL_MAX_DELAY);
+    HAL_GPIO_WritePin(dev->cs_port, dev->cs_pin, GPIO_PIN_SET);
+}
+
 uint8_t IMU_Initialise(IMU *dev, SPI_HandleTypeDef *spi_handle, GPIO_TypeDef *cs_port, uint16_t cs_pin)
 {
     dev->spi_handle = spi_handle;
@@ -27,13 +40,8 @@ uint8_t IMU_Initialise(IMU *dev, SPI_HandleTypeDef *spi_handle, GPIO_TypeDef *cs
     uint8_t accelPower = 0b01011000; /* powers up accelerometer, ODR 208Hz, first-stage digital filtering output */
     uint8_t gyroPower   = 0b01010000; /* powers up gyroscope, ODR 208Hz, full-scale 250dps */
 
-    HAL_GPIO_WritePin(dev->cs_port, dev->cs_pin, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(dev->spi_handle, &accelPower, 1, HAL_MAX_DELAY);
-    HAL_GPIO_WritePin(dev->cs_port, dev->cs_pin, GPIO_PIN_SET);
-
-    HAL_GPIO_WritePin(dev->cs_port, dev->cs_pin, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(dev->spi_handle, &gyroPower, 1, HAL_MAX_DELAY);
-    HAL_GPIO_WritePin(dev->cs_port, dev->cs_pin, GPIO_PIN_SET);
+    SPI_WriteRegister(dev, IMU_CTRL1_XL, accelPower);
+    SPI_WriteRegister(dev, IMU_CTRL2_G, gyroPower);
 
     return whoami;
 }

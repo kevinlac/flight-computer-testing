@@ -150,6 +150,16 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	  h3lis_read(&accel, &accelData);
+
+	  ReadAcceleration(&imu, accelXRegHi, accelXRegLow, 0);
+	  ReadAcceleration(&imu, accelYRegHi, accelYRegLow, 1);
+	  ReadAcceleration(&imu, accelZRegHi, accelZRegLow, 2);
+
+	  ReadGyroscope(&imu, gyroXRegHi, gyroXRegLow, 0);
+	  ReadGyroscope(&imu, gyroYRegHi, gyroYRegLow, 1);
+	  ReadGyroscope(&imu, gyroZRegHi, gyroZRegLow, 2);
+
 	  HAL_Delay(200);
   }
   /* USER CODE END 3 */
