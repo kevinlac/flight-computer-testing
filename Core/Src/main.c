@@ -116,30 +116,15 @@ int main(void)
   MX_TIM9_Init();
   /* USER CODE BEGIN 2 */
 
-  // testing barometer thing - not working
-  // TODO: make the barometer work lol
-//  uint8_t found_addr = 0;
-//  for (uint8_t addr = 1; addr < 128; addr++) {
-//      if (HAL_I2C_IsDeviceReady(&hi2c3, addr << 1, 1, 10) == HAL_OK) {
-//          found_addr = addr;
-//          __NOP();
-//      }
-//  }
-
   accel.i2c_handle = &hi2c1;
   accel.device_addr = H3LIS_ADDR_HIGH;
   accelResult = h3lis_init(&accel);
 
   baro.i2c_handle = &hi2c3;
   baro.device_addr = DPS368_ADDR << 1;
-  baroResult = dps368_init(&baro); // doesn't work rn
+  baroResult = dps368_init(&baro);
 
   IMUResult = IMU_Initialise(&imu, &hspi3, GPIOA, GPIO_PIN_15);
-
-  	  // testing buzzer - not working rn
-//  HAL_TIM_PWM_Start(&htim9, TIM_CHANNEL_2);   // buzzer sounds
-//  HAL_Delay(500);
-//  HAL_TIM_PWM_Stop(&htim9, TIM_CHANNEL_2);    // buzzer silent
 
   /* USER CODE END 2 */
 
@@ -159,6 +144,8 @@ int main(void)
 	  ReadGyroscope(&imu, gyroXRegHi, gyroXRegLow, 0);
 	  ReadGyroscope(&imu, gyroYRegHi, gyroYRegLow, 1);
 	  ReadGyroscope(&imu, gyroZRegHi, gyroZRegLow, 2);
+
+	  printf("accel: %d %d %d\r\n", accelData.accel_x, accelData.accel_y, accelData.accel_z);
 
 	  HAL_Delay(200);
   }
@@ -393,7 +380,17 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+#include <stdio.h>
 
+#ifdef __GNUC__
+int __io_putchar(int ch)
+#else
+int fputc(int ch, FILE *f)
+#endif
+{
+    ITM_SendChar(ch);
+    return ch;
+}
 /* USER CODE END 4 */
 
 /**
