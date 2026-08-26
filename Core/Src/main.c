@@ -59,6 +59,8 @@ uint8_t accelResult; // expected 0x32
 AccelData_t accelData;
 
 Baro_t baro;
+int32_t tmp_raw, prs_raw;
+float temperature_C, pressure_hPa, altitude_m;
 uint8_t baroResult; // expected 0x10
 
 IMU imu;
@@ -121,8 +123,14 @@ int main(void)
   accelResult = h3lis_init(&accel);
 
   baro.i2c_handle = &hi2c3;
-  baro.device_addr = DPS368_ADDR << 1;
+  baro.device_addr = DPS368_I2C_ADDR;
   baroResult = dps368_init(&baro);
+  if (baroResult != DPS368_WHOAMI_VAL) {
+	  // nothing
+  }
+  dps368_config_tmp(&baro, DPS368_MEAS_RATE_1, DPS368_SAMP_RATE_8);
+  dps368_config_prs(&baro, DPS368_MEAS_RATE_1, DPS368_SAMP_RATE_8);
+  dps368_set_opmode(&baro, DPS368_OPMODE_BACKGROUND_PRS_TMP);
 
   IMUResult = IMU_Initialise(&imu, &hspi3, GPIOA, GPIO_PIN_15);
 
@@ -145,7 +153,15 @@ int main(void)
 	  ReadGyroscope(&imu, gyroYRegHi, gyroYRegLow, 1);
 	  ReadGyroscope(&imu, gyroZRegHi, gyroZRegLow, 2);
 
-	  printf("accel: %d %d %d\r\n", accelData.accel_x, accelData.accel_y, accelData.accel_z);
+	  dps368_get_result(&baro, &tmp_raw, &prs_raw);
+	  temperature_C = tmp_raw / 100.0f;      /* tmp_raw is °C x100 */
+	  pressure_hPa  = prs_raw / 100.0f;      /* prs_raw is Pa, /100 -> hPa */
+	  altitude_m = dps368_get_altitude(prs_raw);
+
+//	  printf("accel: %d %d %d\r\n", accelData.accel_x, accelData.accel_y, accelData.accel_z);
+	  printf("temp: %ld.%02ld\r\n", (long)temperature_C);
+	  printf("pressure: %ld.%02ld\r\n", (long)pressure_hPa);
+	  printf("altitude: %ld.%02ld\r\n", (long)altitude_m);
 
 	  HAL_Delay(200);
   }
