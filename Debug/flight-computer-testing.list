@@ -37,11 +37,11 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   CONTENTS, READONLY, DEBUGGING, OCTETS
  16 .debug_macro  0002391d  00000000  00000000  00019736  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 17 .debug_line   000118a5  00000000  00000000  0003d053  2**0
+ 17 .debug_line   000118a3  00000000  00000000  0003d053  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 18 .debug_str    000d5574  00000000  00000000  0004e8f8  2**0
+ 18 .debug_str    000d5574  00000000  00000000  0004e8f6  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 19 .comment      00000043  00000000  00000000  00123e6c  2**0
+ 19 .comment      00000043  00000000  00000000  00123e6a  2**0
                   CONTENTS, READONLY
  20 .debug_frame  00004660  00000000  00000000  00123eb0  2**2
                   CONTENTS, READONLY, DEBUGGING, OCTETS
@@ -1442,10 +1442,7 @@ int main(void)
  8000c5c:	f000 f936 	bl	8000ecc <MX_SPI3_Init>
   MX_TIM9_Init();
  8000c60:	f000 f96a 	bl	8000f38 <MX_TIM9_Init>
-//          found_addr = addr;
-//          __NOP();
-//      }
-//  }
+  /* USER CODE BEGIN 2 */
 
   accel.i2c_handle = &hi2c1;
  8000c64:	4b2f      	ldr	r3, [pc, #188]	@ (8000d24 <main+0xe0>)
@@ -1471,7 +1468,7 @@ int main(void)
  8000c84:	4b2a      	ldr	r3, [pc, #168]	@ (8000d30 <main+0xec>)
  8000c86:	22ee      	movs	r2, #238	@ 0xee
  8000c88:	809a      	strh	r2, [r3, #4]
-  baroResult = dps368_init(&baro); // doesn't work rn
+  baroResult = dps368_init(&baro);
  8000c8a:	4829      	ldr	r0, [pc, #164]	@ (8000d30 <main+0xec>)
  8000c8c:	f7ff fee2 	bl	8000a54 <dps368_init>
  8000c90:	4603      	mov	r3, r0
