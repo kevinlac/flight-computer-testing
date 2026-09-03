@@ -44,5 +44,6 @@ uint8_t IMU_Initialise(IMU *dev, SPI_HandleTypeDef *spi_handle, GPIO_TypeDef *cs
 uint8_t SPI_ReadRegister(IMU *dev, uint8_t address);
 void    ReadGyroscope(IMU *dev, uint8_t addressHi, uint8_t addressLo, uint8_t index);
 void    ReadAcceleration(IMU *dev, uint8_t addressHi, uint8_t addressLo, uint8_t index);
+void    ReadAllIMU(IMU *dev);
 
 #endif /* INC_IMU_H_ */

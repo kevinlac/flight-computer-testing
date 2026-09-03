@@ -21,6 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdio.h>
 #include "h3lis.h"
 #define H3LIS_ADDR_LOW   (0x18 << 1)
 #define H3LIS_ADDR_HIGH  (0x19 << 1)
@@ -28,10 +29,21 @@
 #include "dps368.h"
 
 #include "IMU.h"
+
+#include "w25n.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+typedef struct {
+    uint32_t timestamp_ms;
+    int8_t   h3lis_accel[3];
+    float    imu_accel[3];
+    float    imu_gyro[3];
+    float    temperature_C;
+    float    pressure_hPa;
+    float    altitude_m;
+} TelemetryRecord_t;
 
 /* USER CODE END PTD */
 
@@ -49,9 +61,8 @@
 I2C_HandleTypeDef hi2c1;
 I2C_HandleTypeDef hi2c3;
 
+SPI_HandleTypeDef hspi1;
 SPI_HandleTypeDef hspi3;
-
-TIM_HandleTypeDef htim9;
 
 /* USER CODE BEGIN PV */
 Accel_t accel;
@@ -65,6 +76,11 @@ uint8_t baroResult; // expected 0x10
 
 IMU imu;
 uint8_t IMUResult; // expected 0x6C
+
+W25N_Handle_t nand;
+W25N_Status_t nandStatus; // expected W25N_OK after Verify_ID
+TelemetryRecord_t telemetry;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -73,13 +89,25 @@ static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_I2C3_Init(void);
 static void MX_SPI3_Init(void);
-static void MX_TIM9_Init(void);
+static void MX_SPI1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+static void PrintTelemetryRecord(uint32_t page_addr, const uint8_t *data, uint32_t length)
+{
+    (void)length;
+    const TelemetryRecord_t *rec = (const TelemetryRecord_t *)data;
+
+    printf("page %lu | t=%lums | h3lis(%d,%d,%d) | imu_a(%.2f,%.2f,%.2f) mg | imu_g(%.2f,%.2f,%.2f) mdps | %.2fC %.2fhPa %.2fm\r\n",
+           (unsigned long)page_addr, (unsigned long)rec->timestamp_ms,
+           rec->h3lis_accel[0], rec->h3lis_accel[1], rec->h3lis_accel[2],
+           rec->imu_accel[0], rec->imu_accel[1], rec->imu_accel[2],
+           rec->imu_gyro[0], rec->imu_gyro[1], rec->imu_gyro[2],
+           rec->temperature_C, rec->pressure_hPa, rec->altitude_m);
+}
 
 /* USER CODE END 0 */
 
@@ -115,7 +143,7 @@ int main(void)
   MX_I2C1_Init();
   MX_I2C3_Init();
   MX_SPI3_Init();
-  MX_TIM9_Init();
+  MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
 
   accel.i2c_handle = &hi2c1;
@@ -134,6 +162,32 @@ int main(void)
 
   IMUResult = IMU_Initialise(&imu, &hspi3, GPIOA, GPIO_PIN_15);
 
+  // whoami seems to fail, but the values are read normally??? or atleast print normally
+//    if (IMUResult != IMU_WHOAMI_VAL) {
+//        while (1) {
+//            HAL_Delay(100); /* trap here so a wiring/SPI-mode fault is obvious on a debugger */
+//        }
+//    }
+
+  nand.hspi = &hspi1;
+  nand.cs_port = GPIOA;
+  nand.cs_pin = GPIO_PIN_4;
+  nand.timeout = 100;
+
+  W25N_Reset(&nand);
+  nandStatus = W25N_Verify_ID(&nand);
+  if (nandStatus != W25N_OK) {
+	  printf("NAND: JEDEC ID mismatch - check wiring/CS\r\n");
+  }
+
+  nandStatus = W25N_Unlock_All_Blocks(&nand);
+  if (nandStatus != W25N_OK) {
+	printf("NAND: failed to clear block protection\r\n");
+  }
+
+  // reading all the data (or atleast 100 pages of it)
+  W25N_Log_Dump(&nand, 100, &telemetry, sizeof(telemetry), PrintTelemetryRecord);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -149,21 +203,40 @@ int main(void)
 	  ReadAcceleration(&imu, accelYRegHi, accelYRegLow, 1);
 	  ReadAcceleration(&imu, accelZRegHi, accelZRegLow, 2);
 
-	  ReadGyroscope(&imu, gyroXRegHi, gyroXRegLow, 0);
-	  ReadGyroscope(&imu, gyroYRegHi, gyroYRegLow, 1);
-	  ReadGyroscope(&imu, gyroZRegHi, gyroZRegLow, 2);
-
 	  dps368_get_result(&baro, &tmp_raw, &prs_raw);
 	  temperature_C = tmp_raw / 100.0f;      /* tmp_raw is °C x100 */
 	  pressure_hPa  = prs_raw / 100.0f;      /* prs_raw is Pa, /100 -> hPa */
 	  altitude_m = dps368_get_altitude(prs_raw);
 
-//	  printf("accel: %d %d %d\r\n", accelData.accel_x, accelData.accel_y, accelData.accel_z);
-	  printf("temp: %ld.%02ld\r\n", (long)temperature_C);
-	  printf("pressure: %ld.%02ld\r\n", (long)pressure_hPa);
-	  printf("altitude: %ld.%02ld\r\n", (long)altitude_m);
+	  ReadAllIMU(&imu);
 
-	  HAL_Delay(200);
+//	  printf("imu accel (mg): %.2f %.2f %.2f\r\n", imu.acceleration[0], imu.acceleration[1], imu.acceleration[2]);
+//	  printf("imu gyro (mdps): %.2f %.2f %.2f\r\n", imu.gyro[0], imu.gyro[1], imu.gyro[2]);
+//
+//	  printf("temp: %.2f C\r\n", temperature_C);
+//	  printf("pressure: %.2f hPa\r\n", pressure_hPa);
+//	  printf("altitude: %.2f m\r\n", altitude_m);
+
+	  telemetry.timestamp_ms = HAL_GetTick();
+	  telemetry.h3lis_accel[0] = accelData.accel_x;
+	  telemetry.h3lis_accel[1] = accelData.accel_y;
+	  telemetry.h3lis_accel[2] = accelData.accel_z;
+	  telemetry.imu_accel[0] = imu.acceleration[0];
+	  telemetry.imu_accel[1] = imu.acceleration[1];
+	  telemetry.imu_accel[2] = imu.acceleration[2];
+	  telemetry.imu_gyro[0] = imu.gyro[0];
+	  telemetry.imu_gyro[1] = imu.gyro[1];
+	  telemetry.imu_gyro[2] = imu.gyro[2];
+	  telemetry.temperature_C = temperature_C;
+	  telemetry.pressure_hPa = pressure_hPa;
+	  telemetry.altitude_m = altitude_m;
+
+//	  nandStatus = W25N_Log_Write(&nand, &telemetry, sizeof(telemetry));
+//	  if (nandStatus != W25N_OK) {
+//		  printf("NAND write failed at page %lu, status %d\r\n", (unsigned long)nand.log_next_page, nandStatus);
+//	  }
+
+	  HAL_Delay(1000);
   }
   /* USER CODE END 3 */
 }
@@ -278,6 +351,44 @@ static void MX_I2C3_Init(void)
 }
 
 /**
+  * @brief SPI1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_SPI1_Init(void)
+{
+
+  /* USER CODE BEGIN SPI1_Init 0 */
+
+  /* USER CODE END SPI1_Init 0 */
+
+  /* USER CODE BEGIN SPI1_Init 1 */
+
+  /* USER CODE END SPI1_Init 1 */
+  /* SPI1 parameter configuration*/
+  hspi1.Instance = SPI1;
+  hspi1.Init.Mode = SPI_MODE_MASTER;
+  hspi1.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi1.Init.NSS = SPI_NSS_SOFT;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi1.Init.CRCPolynomial = 10;
+  if (HAL_SPI_Init(&hspi1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN SPI1_Init 2 */
+
+  /* USER CODE END SPI1_Init 2 */
+
+}
+
+/**
   * @brief SPI3 Initialization Function
   * @param None
   * @retval None
@@ -316,48 +427,6 @@ static void MX_SPI3_Init(void)
 }
 
 /**
-  * @brief TIM9 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TIM9_Init(void)
-{
-
-  /* USER CODE BEGIN TIM9_Init 0 */
-
-  /* USER CODE END TIM9_Init 0 */
-
-  TIM_OC_InitTypeDef sConfigOC = {0};
-
-  /* USER CODE BEGIN TIM9_Init 1 */
-
-  /* USER CODE END TIM9_Init 1 */
-  htim9.Instance = TIM9;
-  htim9.Init.Prescaler = 15;
-  htim9.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim9.Init.Period = 369;
-  htim9.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim9.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_PWM_Init(&htim9) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 184;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
-  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-  if (HAL_TIM_PWM_ConfigChannel(&htim9, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM9_Init 2 */
-
-  /* USER CODE END TIM9_Init 2 */
-  HAL_TIM_MspPostInit(&htim9);
-
-}
-
-/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -375,7 +444,14 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOC_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4|GPIO_PIN_15, GPIO_PIN_SET);
+
+  /*Configure GPIO pins : PA4 PA15 */
+  GPIO_InitStruct.Pin = GPIO_PIN_4|GPIO_PIN_15;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PB2 */
   GPIO_InitStruct.Pin = GPIO_PIN_2;
@@ -383,20 +459,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : PA15 */
-  GPIO_InitStruct.Pin = GPIO_PIN_15;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
   /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
-#include <stdio.h>
+
 
 #ifdef __GNUC__
 int __io_putchar(int ch)
