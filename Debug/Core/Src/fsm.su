@@ -5,8 +5,8 @@
 ../Core/Src/fsm.c:73:13:fsm_check_apogee	40	static
 ../Core/Src/fsm.c:80:13:fsm_check_landed	56	static
 ../Core/Src/fsm.c:97:6:FSM_Init	16	static
-../Core/Src/fsm.c:133:6:FSM_SetStartingAltitude	16	static
-../Core/Src/fsm.c:138:6:FSM_SetActionCallback	24	static
-../Core/Src/fsm.c:143:6:FSM_NewReading	64	static
-../Core/Src/fsm.c:226:13:FSM_GetState	16	static
-../Core/Src/fsm.c:228:13:FSM_StateName	16	static
+../Core/Src/fsm.c:132:6:FSM_SetStartingAltitude	16	static
+../Core/Src/fsm.c:137:6:FSM_SetActionCallback	24	static
+../Core/Src/fsm.c:142:6:FSM_NewReading	64	static
+../Core/Src/fsm.c:225:13:FSM_GetState	16	static
+../Core/Src/fsm.c:227:13:FSM_StateName	16	static

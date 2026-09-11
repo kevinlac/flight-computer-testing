@@ -67,6 +67,8 @@ I2C_HandleTypeDef hi2c3;
 SPI_HandleTypeDef hspi1;
 SPI_HandleTypeDef hspi3;
 
+TIM_HandleTypeDef htim2;
+
 /* USER CODE BEGIN PV */
 Accel_t accel;
 uint8_t accelResult; // expected 0x32
@@ -93,6 +95,7 @@ static void MX_I2C1_Init(void);
 static void MX_I2C3_Init(void);
 static void MX_SPI3_Init(void);
 static void MX_SPI1_Init(void);
+static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -123,7 +126,6 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -148,7 +150,14 @@ int main(void)
   MX_I2C3_Init();
   MX_SPI3_Init();
   MX_SPI1_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
+  for (int i = 0; i < 3; i++) {
+  		  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
+  		  HAL_Delay(500);
+  		  HAL_TIM_PWM_Stop(&htim2, TIM_CHANNEL_4);
+  		  HAL_Delay(500);
+  	}
 
   accel.i2c_handle = &hi2c1;
   accel.device_addr = H3LIS_ADDR_HIGH;
@@ -192,8 +201,10 @@ int main(void)
   FSM_t fsm;
   FSM_Init(&fsm);
 
+  uint32_t prevTick = HAL_GetTick();
+
   // reading all the data
-  W25N_Log_Dump(&nand, 1000, &telemetry, sizeof(telemetry), PrintTelemetryRecord);
+//  W25N_Log_Dump(&nand, 10000, &telemetry, sizeof(telemetry), PrintTelemetryRecord);
 
   /* USER CODE END 2 */
 
@@ -204,57 +215,67 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  h3lis_read(&accel, &accelData);
-
-	  ReadAcceleration(&imu, accelXRegHi, accelXRegLow, 0);
-	  ReadAcceleration(&imu, accelYRegHi, accelYRegLow, 1);
-	  ReadAcceleration(&imu, accelZRegHi, accelZRegLow, 2);
-
-	  dps368_get_result(&baro, &tmp_raw, &prs_raw);
-	  temperature_C = tmp_raw / 100.0f;      /* tmp_raw is °C x100 */
-	  pressure_hPa  = prs_raw / 100.0f;      /* prs_raw is Pa, /100 -> hPa */
-	  altitude_m = dps368_get_altitude(prs_raw);
-
-	  ReadAllIMU(&imu);
 
 	  uint32_t timeTick = HAL_GetTick();
 
-	  bool changed = FSM_NewReading(
-		  &fsm, 0, 0, 0, /* h3lis int8 accel: unused by fsm.c's logic */
-		  // TODO: make sure that 2nd arg is the one that reads 1000mg when mounted
-		  imu.acceleration[0], imu.acceleration[1], imu.acceleration[2],
-		  imu.gyro[0], imu.gyro[1], imu.gyro[2], altitude_m, timeTick);
+	  if (timeTick - prevTick > 20) {
+		  prevTick = timeTick;
 
-//	  printf("imu accel (mg): %.2f %.2f %.2f\r\n", imu.acceleration[0], imu.acceleration[1], imu.acceleration[2]);
-//	  printf("imu gyro (mdps): %.2f %.2f %.2f\r\n", imu.gyro[0], imu.gyro[1], imu.gyro[2]);
+		  h3lis_read(&accel, &accelData);
+
+		  ReadAcceleration(&imu, accelXRegHi, accelXRegLow, 0);
+		  ReadAcceleration(&imu, accelYRegHi, accelYRegLow, 1);
+		  ReadAcceleration(&imu, accelZRegHi, accelZRegLow, 2);
+
+		  dps368_get_result(&baro, &tmp_raw, &prs_raw);
+		  temperature_C = tmp_raw / 100.0f;      /* tmp_raw is °C x100 */
+		  pressure_hPa  = prs_raw / 100.0f;      /* prs_raw is Pa, /100 -> hPa */
+		  altitude_m = dps368_get_altitude(prs_raw);
+
+		  ReadAllIMU(&imu);
+
+		  bool changed = FSM_NewReading(
+			  &fsm, 0, 0, 0, /* h3lis int8 accel: unused by fsm.c's logic */
+			  // this is INTENTIONALLY in the order [1] [0] [2]
+			  // the [0] is the one which reads 1000 mg when the rocket is upright
+			  imu.acceleration[1], imu.acceleration[0], imu.acceleration[2],
+			  imu.gyro[0], imu.gyro[1], imu.gyro[2], altitude_m, timeTick);
+
+//		  printf("imu accel (mg): %.2f %.2f %.2f\r\n", imu.acceleration[0], imu.acceleration[1], imu.acceleration[2]);
+//		  printf("imu gyro (mdps): %.2f %.2f %.2f\r\n", imu.gyro[0], imu.gyro[1], imu.gyro[2]);
 //
-//	  printf("temp: %.2f C\r\n", temperature_C);
-//	  printf("pressure: %.2f hPa\r\n", pressure_hPa);
-//	  printf("altitude: %.2f m\r\n", altitude_m);
+//		  printf("temp: %.2f C\r\n", temperature_C);
+//		  printf("pressure: %.2f hPa\r\n", pressure_hPa);
+//		  printf("altitude: %.2f m\r\n", altitude_m);
 //
-//	  printf("state: %s\r\n", FSM_StateName(FSM_GetState(&fsm)));
+//		  printf("state: %s\r\n", FSM_StateName(FSM_GetState(&fsm)));
 
-	  telemetry.timestamp_ms = timeTick;
-	  telemetry.h3lis_accel[0] = accelData.accel_x;
-	  telemetry.h3lis_accel[1] = accelData.accel_y;
-	  telemetry.h3lis_accel[2] = accelData.accel_z;
-	  telemetry.imu_accel[0] = imu.acceleration[0];
-	  telemetry.imu_accel[1] = imu.acceleration[1];
-	  telemetry.imu_accel[2] = imu.acceleration[2];
-	  telemetry.imu_gyro[0] = imu.gyro[0];
-	  telemetry.imu_gyro[1] = imu.gyro[1];
-	  telemetry.imu_gyro[2] = imu.gyro[2];
-	  telemetry.temperature_C = temperature_C;
-	  telemetry.pressure_hPa = pressure_hPa;
-	  telemetry.altitude_m = altitude_m;
-	  telemetry.fsm_state = (uint8_t)FSM_GetState(&fsm);
+		  telemetry.timestamp_ms = timeTick;
+		  telemetry.h3lis_accel[0] = accelData.accel_x;
+		  telemetry.h3lis_accel[1] = accelData.accel_y;
+		  telemetry.h3lis_accel[2] = accelData.accel_z;
+		  telemetry.imu_accel[0] = imu.acceleration[0];
+		  telemetry.imu_accel[1] = imu.acceleration[1];
+		  telemetry.imu_accel[2] = imu.acceleration[2];
+		  telemetry.imu_gyro[0] = imu.gyro[0];
+		  telemetry.imu_gyro[1] = imu.gyro[1];
+		  telemetry.imu_gyro[2] = imu.gyro[2];
+		  telemetry.temperature_C = temperature_C;
+		  telemetry.pressure_hPa = pressure_hPa;
+		  telemetry.altitude_m = altitude_m;
+		  telemetry.fsm_state = (uint8_t)FSM_GetState(&fsm);
 
-	  nandStatus = W25N_Log_Write(&nand, &telemetry, sizeof(telemetry));
-	  if (nandStatus != W25N_OK) {
-		  printf("NAND write failed at page %lu, status %d\r\n", (unsigned long)nand.log_next_page, nandStatus);
+		  if (FSM_GetState(&fsm) != FSM_STATE_LANDED) {
+			  HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_6);
+			  nandStatus = W25N_Log_Write(&nand, &telemetry, sizeof(telemetry));
+		  }
+
+		  if (nandStatus != W25N_OK) {
+			  printf("NAND write failed at page %lu, status %d\r\n", (unsigned long)nand.log_next_page, nandStatus);
+		  }
 	  }
 
-	  HAL_Delay(500);
+//	  HAL_Delay(500);
   }
   /* USER CODE END 3 */
 }
@@ -291,8 +312,8 @@ void SystemClock_Config(void)
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
   if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
   {
@@ -445,6 +466,55 @@ static void MX_SPI3_Init(void)
 }
 
 /**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 0;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 2928;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_PWM_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 1465;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+  HAL_TIM_MspPostInit(&htim2);
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -457,12 +527,16 @@ static void MX_GPIO_Init(void)
   /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4|GPIO_PIN_15, GPIO_PIN_SET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_6, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : PA4 PA15 */
   GPIO_InitStruct.Pin = GPIO_PIN_4|GPIO_PIN_15;
@@ -476,6 +550,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PC6 */
+  GPIO_InitStruct.Pin = GPIO_PIN_6;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
