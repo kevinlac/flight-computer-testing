@@ -45,6 +45,7 @@ typedef struct {
     float    temperature_C;
     float    pressure_hPa;
     float    altitude_m;
+    uint8_t  fsm_state;
 } TelemetryRecord_t;
 
 /* USER CODE END PTD */
@@ -109,6 +110,7 @@ static void PrintTelemetryRecord(uint32_t page_addr, const uint8_t *data, uint32
            rec->imu_accel[0], rec->imu_accel[1], rec->imu_accel[2],
            rec->imu_gyro[0], rec->imu_gyro[1], rec->imu_gyro[2],
            rec->temperature_C, rec->pressure_hPa, rec->altitude_m);
+    printf("  state: %s\r\n", FSM_StateName((FSM_State_t)rec->fsm_state));
 }
 
 /* USER CODE END 0 */
@@ -191,7 +193,7 @@ int main(void)
   FSM_Init(&fsm);
 
   // reading all the data
-//  W25N_Log_Dump(&nand, 10000, &telemetry, sizeof(telemetry), PrintTelemetryRecord);
+  W25N_Log_Dump(&nand, 1000, &telemetry, sizeof(telemetry), PrintTelemetryRecord);
 
   /* USER CODE END 2 */
 
@@ -223,14 +225,14 @@ int main(void)
 		  imu.acceleration[0], imu.acceleration[1], imu.acceleration[2],
 		  imu.gyro[0], imu.gyro[1], imu.gyro[2], altitude_m, timeTick);
 
-	  printf("imu accel (mg): %.2f %.2f %.2f\r\n", imu.acceleration[0], imu.acceleration[1], imu.acceleration[2]);
-	  printf("imu gyro (mdps): %.2f %.2f %.2f\r\n", imu.gyro[0], imu.gyro[1], imu.gyro[2]);
-
-	  printf("temp: %.2f C\r\n", temperature_C);
-	  printf("pressure: %.2f hPa\r\n", pressure_hPa);
-	  printf("altitude: %.2f m\r\n", altitude_m);
-
-	  printf("state: %s\r\n", FSM_StateName(FSM_GetState(&fsm)));
+//	  printf("imu accel (mg): %.2f %.2f %.2f\r\n", imu.acceleration[0], imu.acceleration[1], imu.acceleration[2]);
+//	  printf("imu gyro (mdps): %.2f %.2f %.2f\r\n", imu.gyro[0], imu.gyro[1], imu.gyro[2]);
+//
+//	  printf("temp: %.2f C\r\n", temperature_C);
+//	  printf("pressure: %.2f hPa\r\n", pressure_hPa);
+//	  printf("altitude: %.2f m\r\n", altitude_m);
+//
+//	  printf("state: %s\r\n", FSM_StateName(FSM_GetState(&fsm)));
 
 	  telemetry.timestamp_ms = timeTick;
 	  telemetry.h3lis_accel[0] = accelData.accel_x;
@@ -245,11 +247,12 @@ int main(void)
 	  telemetry.temperature_C = temperature_C;
 	  telemetry.pressure_hPa = pressure_hPa;
 	  telemetry.altitude_m = altitude_m;
+	  telemetry.fsm_state = (uint8_t)FSM_GetState(&fsm);
 
-//	  nandStatus = W25N_Log_Write(&nand, &telemetry, sizeof(telemetry));
-//	  if (nandStatus != W25N_OK) {
-//		  printf("NAND write failed at page %lu, status %d\r\n", (unsigned long)nand.log_next_page, nandStatus);
-//	  }
+	  nandStatus = W25N_Log_Write(&nand, &telemetry, sizeof(telemetry));
+	  if (nandStatus != W25N_OK) {
+		  printf("NAND write failed at page %lu, status %d\r\n", (unsigned long)nand.log_next_page, nandStatus);
+	  }
 
 	  HAL_Delay(500);
   }

@@ -113,8 +113,7 @@ void FSM_Init(FSM_t *fsm) {
      * set these to something like 1.5-2x that as headroom. */
     fsm->maxExpectedThrustMs = 8000;
     fsm->maxExpectedCoastMs = 45000;
-    // TODO: change to milli dps
-    fsm->tolerance = 10.0f; // 10 degrees per second gyro
+    fsm->tolerance = 10000.0f; // 10 degrees per second gyro
     fsm->haveStartingAltitude = false;
 
     /* Placeholder durations - same "needs real tuning" caveat as every
