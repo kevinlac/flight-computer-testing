@@ -1,5 +1,6 @@
 "./Core/Src/IMU.o"
 "./Core/Src/dps368.o"
+"./Core/Src/fsm.o"
 "./Core/Src/h3lis.o"
 "./Core/Src/main.o"
 "./Core/Src/stm32f4xx_hal_msp.o"

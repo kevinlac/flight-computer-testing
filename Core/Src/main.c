@@ -31,6 +31,8 @@
 #include "IMU.h"
 
 #include "w25n.h"
+
+#include "fsm.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -185,8 +187,11 @@ int main(void)
 	printf("NAND: failed to clear block protection\r\n");
   }
 
-  // reading all the data (or atleast 100 pages of it)
-  W25N_Log_Dump(&nand, 100, &telemetry, sizeof(telemetry), PrintTelemetryRecord);
+  FSM_t fsm;
+  FSM_Init(&fsm);
+
+  // reading all the data
+//  W25N_Log_Dump(&nand, 10000, &telemetry, sizeof(telemetry), PrintTelemetryRecord);
 
   /* USER CODE END 2 */
 
@@ -210,14 +215,24 @@ int main(void)
 
 	  ReadAllIMU(&imu);
 
-//	  printf("imu accel (mg): %.2f %.2f %.2f\r\n", imu.acceleration[0], imu.acceleration[1], imu.acceleration[2]);
-//	  printf("imu gyro (mdps): %.2f %.2f %.2f\r\n", imu.gyro[0], imu.gyro[1], imu.gyro[2]);
-//
-//	  printf("temp: %.2f C\r\n", temperature_C);
-//	  printf("pressure: %.2f hPa\r\n", pressure_hPa);
-//	  printf("altitude: %.2f m\r\n", altitude_m);
+	  uint32_t timeTick = HAL_GetTick();
 
-	  telemetry.timestamp_ms = HAL_GetTick();
+	  bool changed = FSM_NewReading(
+		  &fsm, 0, 0, 0, /* h3lis int8 accel: unused by fsm.c's logic */
+		  // TODO: make sure that 2nd arg is the one that reads 1000mg when mounted
+		  imu.acceleration[0], imu.acceleration[1], imu.acceleration[2],
+		  imu.gyro[0], imu.gyro[1], imu.gyro[2], altitude_m, timeTick);
+
+	  printf("imu accel (mg): %.2f %.2f %.2f\r\n", imu.acceleration[0], imu.acceleration[1], imu.acceleration[2]);
+	  printf("imu gyro (mdps): %.2f %.2f %.2f\r\n", imu.gyro[0], imu.gyro[1], imu.gyro[2]);
+
+	  printf("temp: %.2f C\r\n", temperature_C);
+	  printf("pressure: %.2f hPa\r\n", pressure_hPa);
+	  printf("altitude: %.2f m\r\n", altitude_m);
+
+	  printf("state: %s\r\n", FSM_StateName(FSM_GetState(&fsm)));
+
+	  telemetry.timestamp_ms = timeTick;
 	  telemetry.h3lis_accel[0] = accelData.accel_x;
 	  telemetry.h3lis_accel[1] = accelData.accel_y;
 	  telemetry.h3lis_accel[2] = accelData.accel_z;
@@ -236,7 +251,7 @@ int main(void)
 //		  printf("NAND write failed at page %lu, status %d\r\n", (unsigned long)nand.log_next_page, nandStatus);
 //	  }
 
-	  HAL_Delay(1000);
+	  HAL_Delay(500);
   }
   /* USER CODE END 3 */
 }

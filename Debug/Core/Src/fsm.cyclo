@@ -1,0 +1,12 @@
+../Core/Src/fsm.c:5:13:fsm_transition	6
+../Core/Src/fsm.c:38:13:fsm_update_duration_condition	3
+../Core/Src/fsm.c:54:13:fsm_check_thrust	1
+../Core/Src/fsm.c:63:13:fsm_check_burnout	1
+../Core/Src/fsm.c:73:13:fsm_check_apogee	1
+../Core/Src/fsm.c:80:13:fsm_check_landed	4
+../Core/Src/fsm.c:97:6:FSM_Init	1
+../Core/Src/fsm.c:133:6:FSM_SetStartingAltitude	1
+../Core/Src/fsm.c:138:6:FSM_SetActionCallback	1
+../Core/Src/fsm.c:143:6:FSM_NewReading	16
+../Core/Src/fsm.c:226:13:FSM_GetState	1
+../Core/Src/fsm.c:228:13:FSM_StateName	7
