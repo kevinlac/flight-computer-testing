@@ -201,10 +201,16 @@ int main(void)
   FSM_t fsm;
   FSM_Init(&fsm);
 
+  if (FSM_GetState(&fsm) == FSM_STATE_READY) {
+	  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
+	  HAL_Delay(500);
+	  HAL_TIM_PWM_Stop(&htim2, TIM_CHANNEL_4);
+  }
+
   uint32_t prevTick = HAL_GetTick();
 
   // reading all the data
-//  W25N_Log_Dump(&nand, 10000, &telemetry, sizeof(telemetry), PrintTelemetryRecord);
+//  W25N_Log_Dump(&nand, 100000, &telemetry, sizeof(telemetry), PrintTelemetryRecord);
 
   /* USER CODE END 2 */
 
